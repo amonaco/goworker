@@ -47,18 +47,18 @@ func (worker *Worker) Stop() {
 }
 
 func (worker *Worker) Push(task *Task) {
-	lane := getRandom(worker.Max)
-	worker.channels[lane] <- task
+	id := getRandom(worker.Max)
+	worker.channels[id] <- task
 }
 
-func (w *Worker) wrapHandler(c chan *Task, lane int) {
+func (worker *Worker) wrapHandler(c chan *Task, id int) {
 	for {
 		select {
-		case <-w.quit:
+		case <-worker.quit:
 			return
 		case work := <-c:
-			log.Printf("[worker][%d] received task\n", lane)
-			w.Handler(work)
+			log.Printf("[worker][%d] received task\n", id)
+			worker.Handler(work)
 		}
 	}
 }
