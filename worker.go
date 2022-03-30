@@ -1,4 +1,4 @@
-package goworker
+package worker
 
 import (
 	"log"
