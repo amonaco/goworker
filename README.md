@@ -14,7 +14,7 @@ import (
 	goworker "github.com/amonaco/goworker"
 )
 
-func handler(task *worker.Task) {
+func handler(task *goworker.Task) {
 	log.Printf("[handler] received task: %v, %v\n", task.Key, task.Args)
 }
 
