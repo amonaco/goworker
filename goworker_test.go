@@ -32,6 +32,4 @@ func TestWorker(t *testing.T) {
 	if len(results) != 2 {
 		t.Errorf("expected 2 tasks processed, got %d", len(results))
 	}
-
-}	}
 }
