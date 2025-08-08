@@ -3,6 +3,7 @@ package goworker
 import (
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -11,39 +12,46 @@ type Task struct {
 	Args interface{}
 }
 
+// Worker manages a pool of goroutines to process tasks.
 type Worker struct {
-	channels [](chan *Task)
-	quit     chan bool
+	channels []chan *Task
+	quit     chan struct{}
 	Max      int
 	Handler  func(work *Task)
+	wg       sync.WaitGroup
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 func NewWorker(max int, handler func(task *Task)) *Worker {
 	worker := &Worker{
 		Max:     max,
 		Handler: handler,
+		quit:    make(chan struct{}),
 	}
-
-	worker.channels = make([](chan *Task), max)
-	worker.quit = make(chan bool)
-
+	worker.channels = make([]chan *Task, max)
 	for i := 0; i < max; i++ {
-		worker.channels[i] = make(chan *Task) //, 10)
+		worker.channels[i] = make(chan *Task, 10) // buffered channel
 	}
-
 	return worker
 }
 
 func (worker *Worker) Start() {
-	i := 0
-	for i = 0; i < worker.Max; i++ {
+	for i := 0; i < worker.Max; i++ {
 		log.Printf("[worker][%d] starting\n", i)
+		worker.wg.Add(1)
 		go worker.wrapHandler(worker.channels[i], i)
 	}
 }
 
 func (worker *Worker) Stop() {
-	worker.quit <- true
+	close(worker.quit)
+	for _, ch := range worker.channels {
+		close(ch)
+	}
+	worker.wg.Wait()
 }
 
 func (worker *Worker) Push(task *Task) {
@@ -52,11 +60,15 @@ func (worker *Worker) Push(task *Task) {
 }
 
 func (worker *Worker) wrapHandler(c chan *Task, id int) {
+	defer worker.wg.Done()
 	for {
 		select {
 		case <-worker.quit:
 			return
-		case work := <-c:
+		case work, ok := <-c:
+			if !ok {
+				return
+			}
 			log.Printf("[worker][%d] received task\n", id)
 			worker.Handler(work)
 		}
@@ -64,8 +76,5 @@ func (worker *Worker) wrapHandler(c chan *Task, id int) {
 }
 
 func getRandom(max int) int {
-	rand.Seed(time.Now().UnixNano())
-	min := 0
-	max = max - 1
-	return rand.Intn(max-min+1) + min
+	return rand.Intn(max)
 }
